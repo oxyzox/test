@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .notice-content {
+            display: none;
+        }
+
+        .notice-item.expanded .notice-content {
+            display: block;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100">
+    <div id="app" class="min-h-screen flex items-center justify-center bg-gray-100">
+        <!-- Login Screen -->
+        <div id="login-screen" class="p-6 max-w-sm w-full mx-auto bg-white rounded-lg shadow-xl">
+            <h2 class="text-2xl font-bold mb-4 text-center">Login</h2>
+            <form id="login-form" class="space-y-4">
+                <input type="text" id="login-username"
+                    class="block w-full p-3 border rounded focus:ring focus:ring-blue-200" placeholder="Username"
+                    required>
+                <input type="password" id="login-password"
+                    class="block w-full p-3 border rounded focus:ring focus:ring-blue-200" placeholder="Password"
+                    required>
+                <button type="submit"
+                    class="block w-full bg-blue-500 text-white p-3 rounded hover:bg-blue-600">Login</button>
+            </form>
+            <p class="text-center mt-4">Don't have an account? <a href="#" id="go-register"
+                    class="text-blue-500 hover:underline">Register</a></p>
+        </div>
+
+        <!-- Register Screen -->
+        <div id="register-screen" class="hidden p-6 max-w-sm w-full mx-auto bg-white rounded-lg shadow-xl">
+            <h2 class="text-2xl font-bold mb-4 text-center">Register</h2>
+            <form id="register-form" class="space-y-4" enctype="multipart/form-data">
+                <input type="text" id="register-username"
+                    class="block w-full p-3 border rounded focus:ring focus:ring-green-200" placeholder="Username"
+                    required>
+                <input type="password" id="register-password"
+                    class="block w-full p-3 border rounded focus:ring focus:ring-green-200" placeholder="Password"
+                    required>
+                <input type="password" id="confirm-password"
+                    class="block w-full p-3 border rounded focus:ring focus:ring-green-200"
+                    placeholder="Confirm Password" required>
+                <select id="register-role"
+                    class="block w-full p-3 border rounded focus:ring focus:ring-green-200">
+                    <option value="student">Student</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <input type="password" id="secret-code"
+                    class="block w-full p-3 border rounded focus:ring focus:ring-green-200"
+                    placeholder="Secret Code (for Teacher/Admin)">
+                <button type="submit"
+                    class="block w-full bg-green-500 text-white p-3 rounded hover:bg-green-600">Register</button>
+            </form>
+            <p class="text-center mt-4">Already have an account? <a href="#" id="go-login"
+                    class="text-blue-500 hover:underline">Login</a></p>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="hidden p-6 max-w-4xl w-full mx-auto bg-white rounded-lg shadow-xl">
+            <h2 id="dashboard-title" class="text-3xl font-bold mb-6 text-center">Dashboard</h2>
+
+            <button id="logout-btn" class="mb-4 bg-red-500 text-white p-2 rounded hover:bg-red-600">Logout</button>
+
+            <!-- Admin Notice Management -->
+            <div id="admin-section" class="hidden">
+                <h3 class="text-2xl font-semibold mb-4">Create Notice</h3>
+                <form id="notice-form" class="space-y-4" enctype="multipart/form-data">
+                    <input type="text" id="notice-title"
+                        class="block w-full p-3 border rounded focus:ring focus:ring-blue-200" placeholder="Notice Title"
+                        required>
+                    <textarea id="notice-description"
+                        class="block w-full p-3 border rounded focus:ring focus:ring-blue-200" placeholder="Notice Description"
+                        required></textarea>
+                    <input type="file" id="notice-file"
+                        class="block w-full p-3 border rounded">
+                    <button type="submit"
+                        class="block w-full bg-blue-500 text-white p-3 rounded hover:bg-blue-600">Create Notice</button>
+                </form>
+            </div>
+
+            <!-- Notices Section -->
+            <div class="mt-6">
+                <h3 class="text-2xl font-semibold mb-4">Notices</h3>
+                <div id="notices-list" class="space-y-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+    <script>
+        const db = new Dexie('SchoolSystem');
+        db.version(1).stores({
+            users: '++id,username,password,role',
+            notices: '++id,title,description,file'
+        });
+
+        const loginScreen = document.getElementById('login-screen');
+        const registerScreen = document.getElementById('register-screen');
+        const dashboard = document.getElementById('dashboard');
+        const adminSection = document.getElementById('admin-section');
+        const noticesList = document.getElementById('notices-list');
+        const logoutBtn = document.getElementById('logout-btn');
+        let currentUser = null;
+
+        // Load user from localStorage
+        function loadUserFromStorage() {
+            const user = JSON.parse(localStorage.getItem('currentUser'));
+            if (user) {
+                currentUser = user;
+                showDashboard(user);
+            } else {
+                showLogin();
+            }
+        }
+
+        // Show Dashboard
+        function showDashboard(user) {
+            loginScreen.classList.add('hidden');
+            registerScreen.classList.add('hidden');
+            dashboard.classList.remove('hidden');
+
+            document.getElementById('dashboard-title').innerText = `${user.role.charAt(0).toUpperCase() + user.role.slice(1)} Dashboard`;
+
+            if (user.role === 'admin') {
+                adminSection.classList.remove('hidden');
+            } else {
+                adminSection.classList.add('hidden');
+            }
+
+            loadNotices();
+        }
+
+        // Show Login Screen
+        function showLogin() {
+            loginScreen.classList.remove('hidden');
+            registerScreen.classList.add('hidden');
+            dashboard.classList.add('hidden');
+        }
+
+        // Show Register Screen
+        document.getElementById('go-register').addEventListener('click', (e) => {
+            e.preventDefault();
+            loginScreen.classList.add('hidden');
+            registerScreen.classList.remove('hidden');
+            dashboard.classList.add('hidden');
+        });
+
+        // Show Login Screen
+        document.getElementById('go-login').addEventListener('click', (e) => {
+            e.preventDefault();
+            showLogin();
+        });
+
+        // Login Form
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            const user = await db.users.get({ username, password });
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                showDashboard(user);
+            } else {
+                alert('Invalid credentials!');
+            }
+        });
+
+        // Registration Form
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('register-username').value;
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const role = document.getElementById('register-role').value;
+            const secretCode = document.getElementById('secret-code').value;
+
+            if (password !== confirmPassword) {
+                alert('Passwords do not match!');
+                return;
+            }
+
+            if ((role === 'admin' || role === 'teacher') && secretCode !== 'oxyzoxgoated') {
+                alert('Invalid secret code for admin/teacher!');
+                return;
+            }
+
+            const userExists = await db.users.where('username').equals(username).count();
+            if (userExists) {
+                alert('Username already exists!');
+                return;
+            }
+
+            await db.users.add({ username, password, role });
+            alert('Registration successful!');
+            showLogin();
+        });
+
+        // Create Notice Form
+        document.getElementById('notice-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('notice-title').value;
+            const description = document.getElementById('notice-description').value;
+            const fileInput = document.getElementById('notice-file');
+            const file = fileInput.files[0];
+            const fileURL = file ? URL.createObjectURL(file) : '';
+
+            await db.notices.add({ title, description, file: fileURL });
+            alert('Notice created!');
+            loadNotices();
+        });
+
+        // Load Notices
+        async function loadNotices() {
+            noticesList.innerHTML = '';
+            const notices = await db.notices.toArray();
+            notices.forEach(notice => {
+                const noticeItem = document.createElement('div');
+                noticeItem.className = 'notice-item p-4 bg-gray-200 rounded shadow-md';
+                noticeItem.innerHTML = `
+                    <h4 class="text-xl font-semibold mb-2">${notice.title}</h4>
+                    <p class="text-gray-700">${notice.description.slice(0, 100)} <a href="#" class="text-blue-500 read-more">Read More</a></p>
+                    <div class="notice-content mt-2">
+                        ${notice.file ? `<a href="${notice.file}" target="_blank">View File</a>` : ''}
+                    </div>
+                `;
+
+                noticeItem.querySelector('.read-more').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    noticeItem.classList.toggle('expanded');
+                });
+
+                noticesList.appendChild(noticeItem);
+            });
+        }
+
+        // Logout Button
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('currentUser');
+            currentUser = null;
+            showLogin();
+        });
+
+        // Initialize
+        loadUserFromStorage();
+    </script>
+</body>
+
+</html>
